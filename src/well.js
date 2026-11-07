@@ -15,6 +15,14 @@
 //
 // Nació como un modo de sunburst; ahora es un experimento aparte.
 //
+// Y tres maneras más de verlo, sobre la misma forma (el mismo pozo, las mismas ondas y la
+// misma masa del cursor: un trozo de shader común, SURFACE):
+//   - GRID: la sábana del espacio-tiempo. Una malla de líneas rectas, como papel
+//     milimetrado, que se hunde en el pozo y se estira al bajar por la garganta;
+//   - ORBIT: el disco de acreción. Partículas que giran alrededor del agujero, cada vez más
+//     deprisa cuanto más cerca, y caen en espiral, con estela;
+//   - y los puntos de siempre en otros colores (negative, wire: main.js).
+//
 // Todo lo mueve un shader. Cada punto sabe en qué anillo está («u», de 0 al fondo de la
 // garganta a 1 en el borde de fuera) y en qué ángulo; con el tiempo, u baja (cae) y, al
 // llegar al fondo, vuelve a empezar por fuera. De ahí salen su radio y su altura, y luego
@@ -69,6 +77,61 @@ const MASS_WIDTH = 0.5;
 const MASS_PULL = 0.08;
 const MASS_EASE = 0.25;
 
+// La malla (grid): cuántas líneas en cada dirección, hasta dónde llega (radios) y en
+// cuántos tramos se parte cada línea (más = curvas más suaves).
+const GRID_LINES = 56;
+const GRID_REACH = 4.2;
+const GRID_STEPS = 220;
+
+// El disco (orbit): cuántas partículas, cuántos puntos de estela lleva cada una y lo
+// separados que van (en partes del camino entero), lo que caen por segundo (también en
+// partes del camino), lo que giran (cuanto más cerca, más: la velocidad de una órbita
+// crece como 1 / r^1,5) y su tamaño.
+const PARTICLES = 2600;
+const TRAIL = 6;
+const TRAIL_GAP = 0.004;
+const ORBIT_FALL = 0.03;
+const SWIRL = 9;
+const PARTICLE_SIZE = 3;
+
+// El trozo de shader común: el pozo (fuera de la garganta) y lo que hacemos nosotros (la
+// masa del cursor y las ondas), para un punto «p» del plano a la altura «z».
+const SURFACE = /* glsl */ `
+  uniform vec4 ripples[${MAX_RIPPLES}];
+  uniform vec3 mass;
+
+  // El pozo: cada vez más hondo cuanto más cerca del agujero.
+  float well(float r) {
+    return -${DEPTH.toFixed(2)} * pow(${HOLE.toFixed(3)} / r, 1.4);
+  }
+
+  // Lo que hacemos nosotros: la masa del cursor atrae los puntos de alrededor y hunde la
+  // tela donde está; y las ondas la suben y la bajan.
+  vec3 disturb(vec2 p, float z) {
+    vec2 toMass = mass.xy - p;
+    float near = exp(-dot(toMass, toMass) / ${(MASS_WIDTH * MASS_WIDTH).toFixed(3)}) * mass.z;
+    p += toMass * near * ${MASS_PULL.toFixed(2)};
+    z -= near * ${MASS_DEPTH.toFixed(2)};
+    for (int i = 0; i < ${MAX_RIPPLES}; i++) {
+      vec4 w = ripples[i];
+      float front = length(p - w.xy) - w.z * ${RIPPLE_SPEED.toFixed(2)};
+      float fade = exp(-w.z * ${(3 / RIPPLE_LIFE).toFixed(3)}) * w.w;
+      z += ${RIPPLE_HEIGHT.toFixed(3)} * fade * exp(-pow(front / ${RIPPLE_WIDTH.toFixed(2)}, 2.0)) * cos(front * 14.0);
+    }
+    return vec3(p, z);
+  }
+
+  // Un sitio del camino (de 0, al fondo de la garganta, a 1, fuera): su radio y su altura.
+  vec2 along(float uu) {
+    if (uu < ${THROAT.toFixed(2)}) {
+      float t = uu / ${THROAT.toFixed(2)};
+      return vec2(${HOLE.toFixed(3)} * mix(${NARROW.toFixed(2)}, 1.0, t * t), well(${HOLE.toFixed(3)}) - (1.0 - t) * ${THROAT_DEPTH.toFixed(2)});
+    }
+    float r = ${HOLE.toFixed(3)} * pow(${(OUTER / HOLE).toFixed(3)}, (uu - ${THROAT.toFixed(2)}) / ${(1 - THROAT).toFixed(2)});
+    return vec2(r, well(r));
+  }
+`;
+
 // Los números, para la ficha del modo wire (main.js).
 export const INFO = { rings: RINGS, outer: OUTER, depth: DEPTH, throat: THROAT, hole: HOLE };
 
@@ -116,6 +179,8 @@ export function createWell({ ink }) {
     phase: { value: 0 },
     pixelRatio: { value: 1 },
     distance: { value: 10 },
+    // El reloj (segundos), para el disco.
+    time: { value: 0 },
     // La densidad según el tamaño de la pantalla (1 = grande; menos, en pantallas pequeñas).
     density: { value: 1 },
     // Cada onda: x, y, su edad (segundos; muy grande: apagada) y su fuerza.
@@ -136,46 +201,18 @@ export function createWell({ ink }) {
       uniform float phase;
       uniform float pixelRatio;
       uniform float distance;
-      uniform vec4 ripples[${MAX_RIPPLES}];
-      uniform vec3 mass;
       varying float vKeep;
-
-      // El pozo, fuera de la garganta: cada vez más hondo cuanto más cerca del agujero.
-      float well(float r) {
-        return -${DEPTH.toFixed(2)} * pow(${HOLE.toFixed(3)} / r, 1.4);
-      }
+      ${SURFACE}
 
       void main() {
-        // El anillo cae con el tiempo y vuelve a empezar por fuera.
+        // El anillo cae con el tiempo y vuelve a empezar por fuera; en la garganta, la tela
+        // se pliega hacia abajo, estrechándose, hasta perderse («along»).
         float uu = fract(u - phase);
-        float r;
-        float z;
-        if (uu < ${THROAT.toFixed(2)}) {
-          // La garganta: la tela se pliega hacia abajo, estrechándose, hasta perderse.
-          float t = uu / ${THROAT.toFixed(2)};
-          r = ${HOLE.toFixed(3)} * mix(${NARROW.toFixed(2)}, 1.0, t * t);
-          z = well(${HOLE.toFixed(3)}) - (1.0 - t) * ${THROAT_DEPTH.toFixed(2)};
-        } else {
-          r = ${HOLE.toFixed(3)} * pow(${(OUTER / HOLE).toFixed(3)}, (uu - ${THROAT.toFixed(2)}) / ${(1 - THROAT).toFixed(2)});
-          z = well(r);
-        }
-        vec2 p = vec2(cos(angle), sin(angle)) * r + jitter * r * ${JITTER.toFixed(3)};
+        vec2 rz = along(uu);
+        float r = rz.x;
+        vec3 q = disturb(vec2(cos(angle), sin(angle)) * r + jitter * r * ${JITTER.toFixed(3)}, rz.y);
 
-        // La masa del cursor: atrae los puntos de alrededor y hunde la tela donde está.
-        vec2 toMass = mass.xy - p;
-        float near = exp(-dot(toMass, toMass) / ${(MASS_WIDTH * MASS_WIDTH).toFixed(3)}) * mass.z;
-        p += toMass * near * ${MASS_PULL.toFixed(2)};
-        z -= near * ${MASS_DEPTH.toFixed(2)};
-
-        // Las ondas.
-        for (int i = 0; i < ${MAX_RIPPLES}; i++) {
-          vec4 w = ripples[i];
-          float front = length(p - w.xy) - w.z * ${RIPPLE_SPEED.toFixed(2)};
-          float fade = exp(-w.z * ${(3 / RIPPLE_LIFE).toFixed(3)}) * w.w;
-          z += ${RIPPLE_HEIGHT.toFixed(3)} * fade * exp(-pow(front / ${RIPPLE_WIDTH.toFixed(2)}, 2.0)) * cos(front * 14.0);
-        }
-
-        vec4 view = modelViewMatrix * vec4(p, z, 1.0);
+        vec4 view = modelViewMatrix * vec4(q, 1.0);
         gl_Position = projectionMatrix * view;
         // Más cerca, un pelo más grandes.
         gl_PointSize = ${SIZE.toFixed(1)} * mix(0.75, 1.0, density) * pixelRatio * distance / -view.z;
@@ -204,9 +241,154 @@ export function createWell({ ink }) {
     `,
   });
 
-  // «spin» gira en su plano; «object», que lo contiene, va donde el agujero y se inclina.
-  const spin = new THREE.Points(geometry, material);
-  spin.frustumCulled = false;
+  const dots = new THREE.Points(geometry, material);
+  dots.frustumCulled = false;
+
+  // ---------------------------------------------------------------------------------------
+  // La malla (grid): líneas rectas en el plano, que el shader dobla con el pozo. Dentro del
+  // agujero, cada punto de la malla se mete por la garganta: cuanto más cerca del centro,
+  // más abajo y más estrecho.
+  // ---------------------------------------------------------------------------------------
+  const gridPoints = [];
+  const gridLine = [];
+  for (let j = 0; j <= GRID_LINES; j++) {
+    const c = -GRID_REACH + (2 * GRID_REACH * j) / GRID_LINES;
+    for (const across of [false, true]) {
+      for (let s = 0; s < GRID_STEPS; s++) {
+        for (const t of [s, s + 1]) {
+          const a = -GRID_REACH + (2 * GRID_REACH * t) / GRID_STEPS;
+          gridPoints.push(across ? a : c, across ? c : a, 0);
+          gridLine.push(j);
+        }
+      }
+    }
+  }
+  const gridGeometry = new THREE.BufferGeometry();
+  gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
+  gridGeometry.setAttribute('line', new THREE.Float32BufferAttribute(gridLine, 1));
+  const gridMaterial = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    vertexShader: /* glsl */ `
+      attribute float line;
+      uniform float density;
+      varying float vAlpha;
+      ${SURFACE}
+
+      void main() {
+        vec2 p = position.xy;
+        float r = length(p);
+        float z;
+        float fade = 1.0;
+        if (r < ${HOLE.toFixed(3)}) {
+          // Dentro del agujero, por la garganta abajo.
+          float t = r / ${HOLE.toFixed(3)};
+          p = p / max(r, 1e-4) * ${HOLE.toFixed(3)} * mix(${NARROW.toFixed(2)}, 1.0, t * t);
+          z = well(${HOLE.toFixed(3)}) - (1.0 - t) * ${THROAT_DEPTH.toFixed(2)};
+          fade = t;
+        } else {
+          z = well(r);
+        }
+        vec3 q = disturb(p, z);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1.0);
+        // Hacia el borde de la malla, se apaga; y en pantallas pequeñas, una de cada dos
+        // líneas.
+        float edge = 1.0 - smoothstep(${(GRID_REACH * 0.55).toFixed(2)}, ${GRID_REACH.toFixed(2)}, max(abs(position.x), abs(position.y)));
+        vAlpha = fade * edge * step(mod(line, 2.0), step(0.75, density));
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 ink;
+      varying float vAlpha;
+      void main() {
+        gl_FragColor = vec4(ink, vAlpha);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const grid = new THREE.LineSegments(gridGeometry, gridMaterial);
+  grid.frustumCulled = false;
+
+  // ---------------------------------------------------------------------------------------
+  // El disco (orbit): cada partícula está en un sitio del camino (u) que baja con el tiempo,
+  // como los anillos, y su ángulo sale de ahí: si cae a ritmo constante por el camino, y en
+  // una órbita se gira como 1 / r^1,5, el ángulo crece como e^(−1,5·L·u) (L = el logaritmo
+  // de lo largo del camino). Así se puede calcular en el shader sin guardar nada de un
+  // fotograma a otro. La estela: unos cuantos puntos más, cada uno un poco más atrás.
+  // ---------------------------------------------------------------------------------------
+  const orbitU = [];
+  const orbitAngle = [];
+  const orbitSpeed = [];
+  const orbitTrail = [];
+  for (let k = 0; k < PARTICLES; k++) {
+    const u = Math.random();
+    const a = Math.random() * Math.PI * 2;
+    const speed = 0.7 + Math.random() * 0.6;
+    for (let i = 0; i < TRAIL; i++) {
+      orbitU.push(u);
+      orbitAngle.push(a);
+      orbitSpeed.push(speed);
+      orbitTrail.push(i);
+    }
+  }
+  const orbitGeometry = new THREE.BufferGeometry();
+  orbitGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(orbitU.length * 3), 3));
+  orbitGeometry.setAttribute('u', new THREE.Float32BufferAttribute(orbitU, 1));
+  orbitGeometry.setAttribute('angle', new THREE.Float32BufferAttribute(orbitAngle, 1));
+  orbitGeometry.setAttribute('speed', new THREE.Float32BufferAttribute(orbitSpeed, 1));
+  orbitGeometry.setAttribute('trail', new THREE.Float32BufferAttribute(orbitTrail, 1));
+  const orbitMaterial = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */ `
+      attribute float u;
+      attribute float angle;
+      attribute float speed;
+      attribute float trail;
+      uniform float time;
+      uniform float pixelRatio;
+      uniform float distance;
+      uniform float density;
+      varying float vGlow;
+      ${SURFACE}
+
+      void main() {
+        // Dónde va por el camino (la estela, un poco más atrás) y su ángulo.
+        float uu = fract(u - time * ${ORBIT_FALL.toFixed(3)} * speed + trail * ${TRAIL_GAP.toFixed(4)});
+        float L = ${Math.log(OUTER / HOLE).toFixed(4)};
+        float a = angle + ${SWIRL.toFixed(1)} * speed * exp(-1.5 * L * uu);
+        vec2 rz = along(uu);
+        vec3 q = disturb(vec2(cos(a), sin(a)) * rz.x, rz.y);
+        vec4 view = modelViewMatrix * vec4(q, 1.0);
+        gl_Position = projectionMatrix * view;
+        float head = 1.0 - trail / ${TRAIL.toFixed(1)};
+        gl_PointSize = ${PARTICLE_SIZE.toFixed(1)} * mix(0.75, 1.0, density) * (0.4 + 0.6 * head) * pixelRatio * distance / -view.z;
+        // Más brillantes cerca del agujero; se apagan al nacer por fuera y al perderse por la
+        // garganta; la estela, cada vez más tenue.
+        vGlow = head * head * (0.35 + 0.65 * (1.0 - uu)) * smoothstep(0.0, ${THROAT.toFixed(2)}, uu) * (1.0 - smoothstep(0.85, 1.0, uu));
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 ink;
+      varying float vGlow;
+      void main() {
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        gl_FragColor = vec4(ink * vGlow * (1.0 - d * 1.6), 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const orbit = new THREE.Points(orbitGeometry, orbitMaterial);
+  orbit.frustumCulled = false;
+
+  // «spin» gira en su plano, con las tres capas (se ve una u otra según el modo); «object»,
+  // que lo contiene, va donde el agujero y se inclina.
+  const spin = new THREE.Group();
+  spin.add(dots, grid, orbit);
   const object = new THREE.Group();
   object.add(spin);
   object.visible = false;
@@ -255,6 +437,7 @@ export function createWell({ ink }) {
   function update(dt, angle, pixelRatio, distance, shortSide = DENSE_FROM) {
     uniforms.density.value = Math.min(1, Math.max(MIN_DENSITY, shortSide / DENSE_FROM));
     phase = (phase + FALL * dt) % 1;
+    uniforms.time.value += dt;
     uniforms.phase.value = phase;
     uniforms.pixelRatio.value = pixelRatio;
     uniforms.distance.value = distance;
@@ -267,14 +450,20 @@ export function createWell({ ink }) {
   }
 
   function dispose() {
-    geometry.dispose();
-    material.dispose();
+    for (const layer of [dots, grid, orbit]) {
+      layer.geometry.dispose();
+      layer.material.dispose();
+    }
   }
 
-  // El color de los puntos (el del modo).
-  function setInk(color) {
+  // Cómo se ve: «dots» (los puntos), «grid» (la malla) u «orbit» (el disco), y de qué
+  // color.
+  function setLook(look, color) {
+    dots.visible = look === 'dots';
+    grid.visible = look === 'grid';
+    orbit.visible = look === 'orbit';
     uniforms.ink.value.set(color);
   }
 
-  return { object, update, ripple, setCursor, setInk, dispose };
+  return { object, update, ripple, setCursor, setLook, dispose };
 }

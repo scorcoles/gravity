@@ -1,8 +1,9 @@
 /* =========================================================================================
    Gravity: los puntos a toda la pantalla y, encima, el símbolo, los botones y el pie
    =========================================================================================
-   Dos juegos de colores, según el modo (main.js pone data-mode en <html>): el rosa con el
-   negro, y el del modo wire, gris claro con gris oscuro (como en vertikis). --page es el
+   Un juego de colores por modo (main.js pone data-mode en <html>): el rosa con el negro;
+   grid, verde fósforo sobre negro; orbit y negative, blanco roto sobre negro; y wire, gris
+   claro con gris oscuro (como en vertikis). --page es el
    color de la página y --ink el de la letra; el pie es un bloque del color de la letra,
    con la letra del color de la página. */
 
@@ -10,6 +11,21 @@
   --page: #ef5a86;
   --ink: #0d0d0d;
   --side: 1rem;
+}
+
+html[data-mode='grid'] {
+  --page: #030a05;
+  --ink: #3dff8f;
+}
+
+html[data-mode='orbit'] {
+  --page: #06060a;
+  --ink: #f4e9d6;
+}
+
+html[data-mode='negative'] {
+  --page: #050505;
+  --ink: #f2efe8;
 }
 
 html[data-mode='wire'] {

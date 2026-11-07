@@ -18,8 +18,12 @@
 //   - cada toque o clic lanza una onda grande, que suena a impacto;
 //   - manteniendo pulsado, todo se acerca (un zoom con el centro en el agujero).
 //
-// Dos modos, con «Prev» y «Next» en el pie, las flechas del teclado o la dirección (#wire):
-// el de siempre, en rosa, y «wire», siempre el último, para ver cómo está hecho.
+// Cinco modos, con «Prev» y «Next» en el pie, las flechas del teclado o la dirección
+// (#grid, #orbit, #negative, #wire): el de siempre, los puntos en negro sobre rosa;
+// «grid», la sábana del espacio-tiempo, una malla verde fósforo sobre negro; «orbit», el
+// disco de acreción, partículas que caen en espiral; «negative», los puntos en blanco
+// sobre negro, como polvo de estrellas; y «wire», siempre el último, para ver cómo está
+// hecho.
 
 import * as THREE from 'three';
 import { createWell, WELL_TILT, INFO } from './well.js';
@@ -27,11 +31,15 @@ import { createSound } from './sound.js';
 import { setupShare } from './share.js';
 import '../style.css';
 
-// Los colores: el rosa y el negro, y los del modo wire (como en vertikis).
-const PINK = '#ef5a86';
-const INK = '#0d0d0d';
-const WIRE_PAPER = '#eeeeee';
-const WIRE_LINE = '#333333';
+// Los modos: qué capa se ve (los puntos, la malla o el disco, well.js), el color de la
+// página y el de la tinta. «wire», siempre el último (como en vertikis: gris y negro).
+const LOOKS = {
+  well: { look: 'dots', page: '#ef5a86', ink: '#0d0d0d' },
+  grid: { look: 'grid', page: '#030a05', ink: '#3dff8f' },
+  orbit: { look: 'orbit', page: '#06060a', ink: '#f4e9d6' },
+  negative: { look: 'dots', page: '#050505', ink: '#f2efe8' },
+  wire: { look: 'dots', page: '#eeeeee', ink: '#333333' },
+};
 
 // Qué parte del lado corto de la pantalla ocuparía un radio de 1.
 const FILL = 0.7;
@@ -58,11 +66,11 @@ const LEAN = 0.35;
 const LEAN_MAX = 0.4;
 
 // El zoom al mantener pulsado: cuánto se acerca por segundo, hasta cuánto, lo que tarda en
-// volver al soltar y lo que espera antes (para poder compartirlo; con el ratón encima de
+// volver al soltar (despacio) y lo que espera antes (para poder compartirlo; con el ratón encima de
 // los botones, no vuelve).
 const ZOOM = 0.9;
 const ZOOM_MAX = 5;
-const ZOOM_BACK = 0.35;
+const ZOOM_BACK = 1.6;
 const ZOOM_HOLD = 1.5;
 
 // La estela del cursor: lo deprisa que tiene que ir (pantallas por segundo), cada cuánto
@@ -98,7 +106,7 @@ new ResizeObserver(resize).observe(canvas);
 resize();
 
 // El pozo.
-const well = createWell({ ink: INK });
+const well = createWell({ ink: LOOKS.well.ink });
 well.object.visible = true;
 scene.add(well.object);
 
@@ -108,8 +116,7 @@ const random = () => (Math.random() * 2 - 1) * OFFSET;
 let home = { x: random(), y: random() };
 const hole = { x: home.x, y: home.y, vx: 0, vy: 0 };
 
-// Los modos: el de siempre y «wire», siempre el último.
-const MODES = ['well', 'wire'];
+const MODES = Object.keys(LOOKS);
 let mode = MODES[0];
 const notes = document.querySelector('[data-notes]');
 if (notes) {
@@ -127,10 +134,10 @@ if (notes) {
 }
 function setMode(name) {
   mode = MODES.includes(name) ? name : MODES[0];
-  const wire = mode === 'wire';
-  renderer.setClearColor(wire ? WIRE_PAPER : PINK);
-  well.setInk(wire ? WIRE_LINE : INK);
-  if (notes) notes.hidden = !wire;
+  const { look, page, ink } = LOOKS[mode];
+  renderer.setClearColor(page);
+  well.setLook(look, ink);
+  if (notes) notes.hidden = mode !== 'wire';
   // El modo, en <html>: style.css cambia los colores de la página.
   document.documentElement.dataset.mode = mode;
   const hash = mode === MODES[0] ? '' : `#${mode}`;
@@ -160,9 +167,7 @@ soundButton?.addEventListener('click', () => {
 });
 
 // Compartir: una foto, con el marco del color de la página.
-setupShare(canvas, () => renderer.render(scene, camera), () =>
-  mode === 'wire' ? { background: WIRE_PAPER, ink: WIRE_LINE } : { background: PINK, ink: INK },
-);
+setupShare(canvas, () => renderer.render(scene, camera), () => ({ background: LOOKS[mode].page, ink: LOOKS[mode].ink }));
 
 // El cursor: dónde está (de -1 a 1 en cada eje; arriba, 1), o null si no está encima; lo
 // deprisa que va (pantallas por segundo); y si es un dedo.
