@@ -3,9 +3,9 @@
 // =========================================================================================
 //
 // Todo se genera aquí, con la Web Audio API: no hay archivos de audio.
-//   - el FONDO, un drone continuo: dos ondas muy graves, casi iguales (24 Hz), que laten
+//   - el FONDO, un drone continuo: dos ondas muy graves, casi iguales (32 Hz), que laten
 //     despacio, y encima, una octava más arriba, dos en diente de sierra que le dan cuerpo
-//     (24 Hz solo, en un móvil o un portátil, casi no suena). Todo por un filtro que solo
+//     (32 Hz solo, en un móvil o un portátil, casi no suena). Todo por un filtro que solo
 //     deja lo más grave y que respira muy despacio. Como la presión del pozo;
 //   - la CAÍDA: un tono que baja sin parar y nunca llega abajo. Son cinco notas a una octava
 //     una de otra que bajan juntas; las de en medio suenan más y las de los extremos casi
@@ -25,7 +25,7 @@
 
 // El fondo: su nota (Hz), cuánto se desafina la segunda onda, por dónde corta el filtro y
 // su respiración (una vuelta cada BREATH segundos, abriendo y cerrando BREATH_DEPTH Hz).
-const BASE = 24;
+const BASE = 32;
 const BEAT = 1.004;
 const FILTER = 85;
 const BREATH = 23;
@@ -52,7 +52,7 @@ const VOLUME = 0.45;
 // La estática de radio: cada cuánto sale (segundos, entre y), cuánto dura, y su volumen.
 const STATIC_EVERY = [8, 20];
 const STATIC_LENGTH = [2.5, 6];
-const STATIC_VOLUME = 0.04;
+const STATIC_VOLUME = 0.032;
 const FADE = 2;
 
 function random(a, b) {
