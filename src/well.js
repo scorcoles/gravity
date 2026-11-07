@@ -266,11 +266,6 @@ export function createWell({ ink }) {
     else uniforms.mass.value.z = massLevel;
   }
 
-  // Al empezar de nuevo (doble toque): sin ondas.
-  function regenerate() {
-    for (const w of uniforms.ripples.value) w.set(0, 0, 1e3, 0);
-  }
-
   function dispose() {
     geometry.dispose();
     material.dispose();
@@ -281,5 +276,5 @@ export function createWell({ ink }) {
     uniforms.ink.value.set(color);
   }
 
-  return { object, update, ripple, setCursor, regenerate, setInk, dispose };
+  return { object, update, ripple, setCursor, setInk, dispose };
 }

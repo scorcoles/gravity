@@ -5,7 +5,7 @@
 // Todo se genera aquí, con la Web Audio API: no hay archivos de audio.
 //   - el FONDO: dos ondas muy graves, casi iguales (27 Hz), que laten despacio, por un
 //     filtro que solo deja lo más grave. Se nota más que se oye, como la presión del pozo;
-//   - la CAÍDA: un tono que baja sin parar y nunca llega abajo. Son seis notas a una octava
+//   - la CAÍDA: un tono que baja sin parar y nunca llega abajo. Son cinco notas a una octava
 //     una de otra que bajan juntas; las de en medio suenan más y las de los extremos casi
 //     nada, así que cuando la más grave se apaga, por arriba entra otra sin que se note
 //     (la ilusión de Shepard). Va con los anillos: bajan a la vez que caen;
@@ -13,6 +13,9 @@
 //   - cada toque, un IMPACTO: un golpe muy grave que cae de tono, un estallido de ruido seco
 //     y una cola de metal que resuena unos segundos; mientras, todo lo demás se aparta un
 //     momento (baja y vuelve);
+//   - de vez en cuando, al azar, ESTÁTICA de radio de fondo: ruido blanco como de una radio
+//     mal sintonizada, que entra despacio, se corta a trozos, el dial parece moverse y se
+//     va; flojo, y cada vez en un sitio distinto entre los dos altavoces;
 //   - con el ZOOM (manteniendo pulsado), todo baja y se cierra, como si te acercaras al
 //     fondo.
 //
@@ -40,6 +43,11 @@ const ZOOM_PITCH = 200;
 
 // Volumen general, y lo que tarda en entrar y en irse (segundos).
 const VOLUME = 0.45;
+
+// La estática de radio: cada cuánto sale (segundos, entre y), cuánto dura, y su volumen.
+const STATIC_EVERY = [8, 20];
+const STATIC_LENGTH = [2.5, 6];
+const STATIC_VOLUME = 0.05;
 const FADE = 2;
 
 function random(a, b) {
@@ -58,6 +66,7 @@ export function createSound() {
   const voices = [];
   let fallPosition = 0;
   let on = false;
+  let staticTimer = 0;
 
   function build() {
     ctx = new AudioContext();
@@ -111,10 +120,63 @@ export function createSound() {
     master.gain.cancelScheduledValues(now);
     master.gain.setValueAtTime(master.gain.value, now);
     master.gain.linearRampToValueAtTime(VOLUME, now + FADE);
+    scheduleStatic();
+  }
+
+  // Estática de radio: ruido blanco por un filtro de banda, como el de una radio, con un
+  // poco de siseo agudo encima. Entra y sale despacio; el filtro va y viene (el dial que se
+  // mueve buscando una emisora); y el volumen se corta y vuelve a trozos al azar.
+  function radio() {
+    const now = ctx.currentTime;
+    const length = random(...STATIC_LENGTH);
+    const source = ctx.createBufferSource();
+    source.buffer = noise;
+    source.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 1.8;
+    band.frequency.setValueAtTime(random(900, 1800), now);
+    for (let t = 0.6; t < length; t += random(0.5, 1.2)) {
+      band.frequency.exponentialRampToValueAtTime(random(700, 2600), now + t);
+    }
+    const hiss = ctx.createBiquadFilter();
+    hiss.type = 'highpass';
+    hiss.frequency.value = 4000;
+    const hissLevel = ctx.createGain();
+    hissLevel.gain.value = 0.3;
+    // El volumen: entra y sale despacio, y entre medias se corta y vuelve.
+    const envelope = ctx.createGain();
+    envelope.gain.setValueAtTime(0, now);
+    envelope.gain.linearRampToValueAtTime(STATIC_VOLUME, now + length * 0.25);
+    envelope.gain.setValueAtTime(STATIC_VOLUME, now + length * 0.7);
+    envelope.gain.linearRampToValueAtTime(0, now + length);
+    const chop = ctx.createGain();
+    chop.gain.setValueAtTime(1, now);
+    for (let t = 0; t < length; t += random(0.05, 0.25)) {
+      chop.gain.setValueAtTime(Math.random() < 0.75 ? random(0.5, 1) : 0.1, now + t);
+    }
+    const side = ctx.createStereoPanner();
+    side.pan.value = random(-0.8, 0.8);
+    source.connect(band).connect(envelope);
+    source.connect(hiss).connect(hissLevel).connect(envelope);
+    envelope.connect(chop).connect(side).connect(bed);
+    source.start(now, random(0, 0.9));
+    source.stop(now + length + 0.05);
+  }
+
+  // La siguiente estática, dentro de unos segundos al azar.
+  function scheduleStatic() {
+    clearTimeout(staticTimer);
+    staticTimer = setTimeout(() => {
+      if (!on) return;
+      radio();
+      scheduleStatic();
+    }, random(...STATIC_EVERY) * 1000);
   }
 
   function stop() {
     on = false;
+    clearTimeout(staticTimer);
     const now = ctx.currentTime;
     master.gain.cancelScheduledValues(now);
     master.gain.setValueAtTime(master.gain.value, now);

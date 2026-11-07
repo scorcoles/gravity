@@ -16,8 +16,7 @@
 //     queda donde lo dejes; al moverse, la tela se inclina hacia donde va;
 //   - el cursor es una masa: hunde la tela donde está, atrae los puntos y deja una estela;
 //   - cada toque o clic lanza una onda grande, que suena a impacto;
-//   - manteniendo pulsado, todo se acerca (un zoom con el centro en el agujero);
-//   - doble toque: el agujero, en otro sitio, y la tela en calma.
+//   - manteniendo pulsado, todo se acerca (un zoom con el centro en el agujero).
 //
 // Dos modos, con «Prev» y «Next» en el pie, las flechas del teclado o la dirección (#wire):
 // el de siempre, en rosa, y «wire», siempre el último, para ver cómo está hecho.
@@ -104,16 +103,10 @@ well.object.visible = true;
 scene.add(well.object);
 
 // Dónde está el agujero y a qué velocidad va (en partes de media pantalla), y su sitio de
-// partida (desde donde sigue al cursor).
-const hole = { x: 0, y: 0, vx: 0, vy: 0 };
-let home = { x: 0, y: 0 };
-function newHole() {
-  const random = () => (Math.random() * 2 - 1) * OFFSET;
-  home = { x: random(), y: random() };
-  Object.assign(hole, { x: home.x, y: home.y, vx: 0, vy: 0 });
-  well.regenerate();
-}
-newHole();
+// partida (desde donde sigue al cursor): al abrir, uno al azar.
+const random = () => (Math.random() * 2 - 1) * OFFSET;
+let home = { x: random(), y: random() };
+const hole = { x: home.x, y: home.y, vx: 0, vy: 0 };
 
 // Los modos: el de siempre y «wire», siempre el último.
 const MODES = ['well', 'wire'];
@@ -218,22 +211,6 @@ tools?.addEventListener('pointerenter', () => {
 });
 tools?.addEventListener('pointerleave', () => {
   overTools = false;
-});
-
-// Doble clic o doble toque: el agujero en otro sitio y la tela en calma. Lo detectamos a
-// mano (dos toques en menos de 300 ms y a menos de 30 px): en el móvil, el «dblclick» del
-// navegador no llega siempre.
-let lastTap = { time: 0, x: 0, y: 0 };
-canvas.addEventListener('pointerdown', (e) => {
-  if (!e.isPrimary) return;
-  const now = performance.now();
-  const close = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30;
-  if (now - lastTap.time < 300 && close) {
-    newHole();
-    lastTap = { time: 0, x: 0, y: 0 };
-  } else {
-    lastTap = { time: now, x: e.clientX, y: e.clientY };
-  }
 });
 
 // Cada fotograma.
