@@ -4,7 +4,7 @@
 //
 // Como en vortik, vertikis y sunburst: el botón de arriba a la derecha abre el menú de
 // compartir del sistema con una foto del momento. La foto es un cartel pequeño: lo que se
-// ve, tal cual, con un marco del color de la página (rosa; gris en wire) y, abajo,
+// ve, tal cual, con un marco del color de la página (rosa, verde o negro, según el modo) y, abajo,
 // «GRAVITY · VERTIK.NET». Donde no se puede compartir una imagen (Firefox de escritorio,
 // por ejemplo), el botón no aparece.
 //

@@ -18,25 +18,23 @@
 //   - cada toque o clic lanza una onda grande, que suena a impacto;
 //   - manteniendo pulsado, todo se acerca (un zoom con el centro en el agujero).
 //
-// Cuatro modos, con «Prev» y «Next» en el pie, las flechas del teclado o la dirección
-// (#grid, #orbit, #wire): el de siempre, los puntos en negro sobre rosa; «grid», la sábana
-// del espacio-tiempo, una malla polar verde, de osciloscopio, sobre negro; «orbit», el
-// disco de acreción, partículas que caen en espiral; y «wire», siempre el último, para ver
-// cómo está hecho.
+// Tres modos, con «Prev» y «Next» en el pie, las flechas del teclado o la dirección
+// (#grid, #orbit): el de siempre, los puntos en negro sobre rosa; «grid», la sábana del
+// espacio-tiempo, una malla polar verde, de osciloscopio, sobre negro; y «orbit», el disco
+// de acreción, partículas que caen en espiral.
 
 import * as THREE from 'three';
-import { createWell, WELL_TILT, INFO } from './well.js';
+import { createWell, WELL_TILT } from './well.js';
 import { createSound } from './sound.js';
 import { setupShare } from './share.js';
 import '../style.css';
 
 // Los modos: qué capa se ve (los puntos, la malla o el disco, well.js), el color de la
-// página y el de la tinta. «wire», siempre el último (como en vertikis: gris y negro).
+// página y el de la tinta.
 const LOOKS = {
   well: { look: 'dots', page: '#ef5a86', ink: '#0d0d0d' },
   grid: { look: 'grid', page: '#04100a', ink: '#5fc98d' },
   orbit: { look: 'orbit', page: '#06060a', ink: '#f4e9d6' },
-  wire: { look: 'dots', page: '#eeeeee', ink: '#333333' },
 };
 
 // Qué parte del lado corto de la pantalla ocuparía un radio de 1.
@@ -116,26 +114,11 @@ const hole = { x: home.x, y: home.y, vx: 0, vy: 0 };
 
 const MODES = Object.keys(LOOKS);
 let mode = MODES[0];
-const notes = document.querySelector('[data-notes]');
-if (notes) {
-  notes.innerHTML = [
-    'GRAVITY · WIRE',
-    `${INFO.rings} ANILLOS · R ${INFO.outer}`,
-    `POZO ${INFO.depth} · (R₀/R)^1,4`,
-    `GARGANTA ${INFO.throat} DEL CAMINO`,
-    `AGUJERO ${INFO.hole} · MUELLE + ROZAMIENTO`,
-    'ONDAS + MASA DEL CURSOR',
-    'VERTIK.NET',
-  ]
-    .map((row) => `<div>${row}</div>`)
-    .join('');
-}
 function setMode(name) {
   mode = MODES.includes(name) ? name : MODES[0];
   const { look, page, ink } = LOOKS[mode];
   renderer.setClearColor(page);
   well.setLook(look, ink);
-  if (notes) notes.hidden = mode !== 'wire';
   // El modo, en <html>: style.css cambia los colores de la página.
   document.documentElement.dataset.mode = mode;
   const hash = mode === MODES[0] ? '' : `#${mode}`;

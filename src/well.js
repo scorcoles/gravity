@@ -15,13 +15,13 @@
 //
 // Nació como un modo de sunburst; ahora es un experimento aparte.
 //
-// Y tres maneras más de verlo, sobre la misma forma (el mismo pozo, las mismas ondas y la
+// Y dos maneras más de verlo, sobre la misma forma (el mismo pozo, las mismas ondas y la
 // misma masa del cursor: un trozo de shader común, SURFACE):
 //   - GRID: la sábana del espacio-tiempo. Una malla polar, de círculos y radios, que se
 //     hunde en el pozo y baja limpia por la garganta; los círculos caen sin parar;
 //   - ORBIT: el disco de acreción. Partículas que giran alrededor del agujero, cada vez más
-//     deprisa cuanto más cerca, y caen en espiral, con estela;
-//   - y los puntos de siempre en otros colores (wire: main.js).
+//     deprisa cuanto más cerca, y caen en espiral, con estela (las que van llegando, por
+//     fuera, muy tenues).
 //
 // Todo lo mueve un shader. Cada punto sabe en qué anillo está («u», de 0 al fondo de la
 // garganta a 1 en el borde de fuera) y en qué ángulo; con el tiempo, u baja (cae) y, al
@@ -91,7 +91,7 @@ const PARTICLES = 2600;
 const TRAIL = 6;
 const TRAIL_GAP = 0.004;
 const ORBIT_FALL = 0.03;
-const SWIRL = 9;
+const SWIRL = 6;
 const PARTICLE_SIZE = 3;
 
 // El trozo de shader común: el pozo (fuera de la garganta) y lo que hacemos nosotros (la
@@ -131,9 +131,6 @@ const SURFACE = /* glsl */ `
     return vec2(r, well(r));
   }
 `;
-
-// Los números, para la ficha del modo wire (main.js).
-export const INFO = { rings: RINGS, outer: OUTER, depth: DEPTH, throat: THROAT, hole: HOLE };
 
 export function createWell({ ink }) {
   // Por cada punto: su anillo, su ángulo, un número al azar (para cuáles se ven) y su desvío.
@@ -368,10 +365,12 @@ export function createWell({ ink }) {
         vec4 view = modelViewMatrix * vec4(q, 1.0);
         gl_Position = projectionMatrix * view;
         float head = 1.0 - trail / ${TRAIL.toFixed(1)};
-        gl_PointSize = ${PARTICLE_SIZE.toFixed(1)} * mix(0.75, 1.0, density) * (0.4 + 0.6 * head) * pixelRatio * distance / -view.z;
-        // Más brillantes cerca del agujero; se apagan al nacer por fuera y al perderse por la
-        // garganta; la estela, cada vez más tenue.
-        vGlow = head * head * (0.35 + 0.65 * (1.0 - uu)) * smoothstep(0.0, ${THROAT.toFixed(2)}, uu) * (1.0 - smoothstep(0.85, 1.0, uu));
+        gl_PointSize = ${PARTICLE_SIZE.toFixed(1)} * mix(0.75, 1.0, density) * (0.4 + 0.6 * head) * mix(0.5, 1.0, 1.0 - uu) * pixelRatio * distance / -view.z;
+        // Las que van llegando, por fuera, muy tenues (si no, marean); cuanto más cerca del
+        // agujero, más brillantes. Se apagan al perderse por la garganta; la estela, cada vez
+        // más tenue.
+        float close = 1.0 - uu;
+        vGlow = head * head * (0.06 + 0.94 * close * close * close) * smoothstep(0.0, ${THROAT.toFixed(2)}, uu) * (1.0 - smoothstep(0.7, 1.0, uu));
       }
     `,
     fragmentShader: /* glsl */ `

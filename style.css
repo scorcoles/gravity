@@ -2,8 +2,7 @@
    Gravity: los puntos a toda la pantalla y, encima, el símbolo, los botones y el pie
    =========================================================================================
    Un juego de colores por modo (main.js pone data-mode en <html>): el rosa con el negro;
-   grid, verde de osciloscopio sobre negro; orbit, blanco roto sobre negro; y wire, gris
-   claro con gris oscuro (como en vertikis). --page es el
+   grid, verde de osciloscopio sobre negro; y orbit, blanco roto sobre negro. --page es el
    color de la página y --ink el de la letra; el pie es un bloque del color de la letra,
    con la letra del color de la página. */
 
@@ -21,11 +20,6 @@ html[data-mode='grid'] {
 html[data-mode='orbit'] {
   --page: #06060a;
   --ink: #f4e9d6;
-}
-
-html[data-mode='wire'] {
-  --page: #eeeeee;
-  --ink: #333333;
 }
 
 html,
@@ -150,25 +144,6 @@ body {
   margin: -3px;
 }
 
-/* La ficha del modo wire, abajo a la derecha, encima del pie: gris y negro, como en
-   vertikis. */
-.notes {
-  position: absolute;
-  right: calc(var(--side) + 12px);
-  bottom: 5rem;
-  padding: 6px 9px;
-  border: 1px solid var(--ink);
-  background: var(--page);
-  color: var(--ink);
-  font: 9px/1.6 ui-monospace, Menlo, Consolas, monospace;
-  letter-spacing: 0.04em;
-  pointer-events: none;
-}
-
-.notes[hidden] {
-  display: none;
-}
-
 /* Abajo: el pie, un bloque macizo del color de la letra, con la letra del de la página, y
    el nombre al revés. */
 .foot {
@@ -233,11 +208,6 @@ body {
     height: 4rem;
   }
 
-  /* En el móvil, la ficha no cabe encima del pie: arriba, bajo los botones. */
-  .notes {
-    top: 4.5rem;
-    bottom: auto;
-  }
 }
 
 /* En el móvil (y en pantallas táctiles), como en los otros experimentos: «Prev» y «Next» en
@@ -265,6 +235,19 @@ body {
 
   .foot__modes button:last-child {
     margin-right: -6px;
+  }
+
+  .foot__sep:has(+ wbr + .foot__modes) {
+    display: none;
+  }
+}
+
+/* En escritorio, «Prev · Next» alineado a la derecha del pie; el «·» que los separaba del
+   resto sobra. */
+@media (min-width: 64rem) and (pointer: fine) {
+  .foot__modes {
+    float: right;
+    margin-left: 1.2em;
   }
 
   .foot__sep:has(+ wbr + .foot__modes) {
