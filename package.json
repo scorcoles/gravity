@@ -1,0 +1,23 @@
+{
+  "name": "gravity",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Un pozo de gravedad dibujado con puntos, que se altera a tu paso. Un experimento de VERTIK.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.6"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scorcoles/gravity.git"
+  }
+}
