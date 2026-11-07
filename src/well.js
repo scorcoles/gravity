@@ -17,8 +17,8 @@
 //
 // Y tres maneras más de verlo, sobre la misma forma (el mismo pozo, las mismas ondas y la
 // misma masa del cursor: un trozo de shader común, SURFACE):
-//   - GRID: la sábana del espacio-tiempo. Una malla de líneas rectas, como papel
-//     milimetrado, que se hunde en el pozo y se estira al bajar por la garganta;
+//   - GRID: la sábana del espacio-tiempo. Una malla polar, de círculos y radios, que se
+//     hunde en el pozo y baja limpia por la garganta; los círculos caen sin parar;
 //   - ORBIT: el disco de acreción. Partículas que giran alrededor del agujero, cada vez más
 //     deprisa cuanto más cerca, y caen en espiral, con estela;
 //   - y los puntos de siempre en otros colores (wire: main.js).
@@ -77,11 +77,11 @@ const MASS_WIDTH = 0.5;
 const MASS_PULL = 0.08;
 const MASS_EASE = 0.25;
 
-// La malla (grid): cuántas líneas en cada dirección, hasta dónde llega (radios) y en
-// cuántos tramos se parte cada línea (más = curvas más suaves).
-const GRID_LINES = 56;
-const GRID_REACH = 4.2;
-const GRID_STEPS = 220;
+// La malla (grid), polar: cuántos círculos (caen hacia el agujero, como los anillos de
+// puntos), cuántos radios, y en cuántos tramos se parte cada línea (más = más suave).
+const GRID_RINGS = 26;
+const GRID_SPOKES = 36;
+const GRID_STEPS = 160;
 
 // El disco (orbit): cuántas partículas, cuántos puntos de estela lleva cada una y lo
 // separados que van (en partes del camino entero), lo que caen por segundo (también en
@@ -245,64 +245,67 @@ export function createWell({ ink }) {
   dots.frustumCulled = false;
 
   // ---------------------------------------------------------------------------------------
-  // La malla (grid): líneas rectas en el plano, que el shader dobla con el pozo. Dentro del
-  // agujero, cada punto de la malla se mete por la garganta: cuanto más cerca del centro,
-  // más abajo y más estrecho.
+  // La malla (grid), polar: círculos y radios sobre el mismo camino que los anillos de
+  // puntos («along»: de 0, al fondo de la garganta, a 1, fuera), así que entran limpios por
+  // la garganta. Los círculos caen con el tiempo, como los anillos; los radios se quedan.
   // ---------------------------------------------------------------------------------------
-  const gridPoints = [];
+  const gridU = [];
+  const gridAngle = [];
+  const gridFlow = [];
   const gridLine = [];
-  for (let j = 0; j <= GRID_LINES; j++) {
-    const c = -GRID_REACH + (2 * GRID_REACH * j) / GRID_LINES;
-    for (const across of [false, true]) {
-      for (let s = 0; s < GRID_STEPS; s++) {
-        for (const t of [s, s + 1]) {
-          const a = -GRID_REACH + (2 * GRID_REACH * t) / GRID_STEPS;
-          gridPoints.push(across ? a : c, across ? c : a, 0);
-          gridLine.push(j);
-        }
-      }
+  function vertex(u, a, flow, line) {
+    gridU.push(u);
+    gridAngle.push(a);
+    gridFlow.push(flow);
+    gridLine.push(line);
+  }
+  for (let k = 0; k < GRID_RINGS; k++) {
+    for (let s = 0; s < GRID_STEPS; s++) {
+      for (const t of [s, s + 1]) vertex(k / GRID_RINGS, (t / GRID_STEPS) * Math.PI * 2, 1, k);
+    }
+  }
+  for (let k = 0; k < GRID_SPOKES; k++) {
+    const a = (k / GRID_SPOKES) * Math.PI * 2;
+    for (let s = 0; s < GRID_STEPS; s++) {
+      for (const t of [s, s + 1]) vertex(t / GRID_STEPS, a, 0, k);
     }
   }
   const gridGeometry = new THREE.BufferGeometry();
-  gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
+  gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(gridU.length * 3), 3));
+  gridGeometry.setAttribute('u', new THREE.Float32BufferAttribute(gridU, 1));
+  gridGeometry.setAttribute('angle', new THREE.Float32BufferAttribute(gridAngle, 1));
+  gridGeometry.setAttribute('flow', new THREE.Float32BufferAttribute(gridFlow, 1));
   gridGeometry.setAttribute('line', new THREE.Float32BufferAttribute(gridLine, 1));
   const gridMaterial = new THREE.ShaderMaterial({
     uniforms,
     transparent: true,
     depthWrite: false,
     vertexShader: /* glsl */ `
+      attribute float u;
+      attribute float angle;
+      attribute float flow;
       attribute float line;
+      uniform float phase;
       uniform float density;
       varying float vAlpha;
       ${SURFACE}
 
       void main() {
-        vec2 p = position.xy;
-        float r = length(p);
-        float z;
-        float fade = 1.0;
-        if (r < ${HOLE.toFixed(3)}) {
-          // Dentro del agujero, por la garganta abajo.
-          float t = r / ${HOLE.toFixed(3)};
-          p = p / max(r, 1e-4) * ${HOLE.toFixed(3)} * mix(${NARROW.toFixed(2)}, 1.0, t * t);
-          z = well(${HOLE.toFixed(3)}) - (1.0 - t) * ${THROAT_DEPTH.toFixed(2)};
-          fade = t;
-        } else {
-          z = well(r);
-        }
-        vec3 q = disturb(p, z);
+        // Los círculos caen (como los anillos de puntos); los radios, quietos.
+        float uu = flow > 0.5 ? fract(u - phase) : u;
+        vec2 rz = along(uu);
+        vec3 q = disturb(vec2(cos(angle), sin(angle)) * rz.x, rz.y);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1.0);
-        // Hacia el borde de la malla, se apaga; y en pantallas pequeñas, una de cada dos
-        // líneas.
-        float edge = 1.0 - smoothstep(${(GRID_REACH * 0.55).toFixed(2)}, ${GRID_REACH.toFixed(2)}, max(abs(position.x), abs(position.y)));
-        vAlpha = fade * edge * step(mod(line, 2.0), step(0.75, density));
+        // Hacia fuera se apaga; al fondo de la garganta, también (se pierde); y en pantallas
+        // pequeñas, una de cada dos líneas.
+        vAlpha = (1.0 - smoothstep(0.5, 1.0, uu)) * smoothstep(0.0, ${THROAT.toFixed(2)}, uu) * step(mod(line, 2.0), step(0.75, density));
       }
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 ink;
       varying float vAlpha;
       void main() {
-        gl_FragColor = vec4(ink, vAlpha);
+        gl_FragColor = vec4(ink, vAlpha * 0.85);
         #include <colorspace_fragment>
       }
     `,

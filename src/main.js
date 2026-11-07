@@ -20,8 +20,9 @@
 //
 // Cuatro modos, con «Prev» y «Next» en el pie, las flechas del teclado o la dirección
 // (#grid, #orbit, #wire): el de siempre, los puntos en negro sobre rosa; «grid», la sábana
-// del espacio-tiempo, una malla verde fósforo sobre negro; «orbit», el disco de acreción,
-// partículas que caen en espiral; y «wire», siempre el último, para ver cómo está hecho.
+// del espacio-tiempo, una malla polar verde, de osciloscopio, sobre negro; «orbit», el
+// disco de acreción, partículas que caen en espiral; y «wire», siempre el último, para ver
+// cómo está hecho.
 
 import * as THREE from 'three';
 import { createWell, WELL_TILT, INFO } from './well.js';
@@ -33,7 +34,7 @@ import '../style.css';
 // página y el de la tinta. «wire», siempre el último (como en vertikis: gris y negro).
 const LOOKS = {
   well: { look: 'dots', page: '#ef5a86', ink: '#0d0d0d' },
-  grid: { look: 'grid', page: '#030a05', ink: '#3dff8f' },
+  grid: { look: 'grid', page: '#04100a', ink: '#5fc98d' },
   orbit: { look: 'orbit', page: '#06060a', ink: '#f4e9d6' },
   wire: { look: 'dots', page: '#eeeeee', ink: '#333333' },
 };
