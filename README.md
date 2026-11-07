@@ -9,7 +9,7 @@ Demo: [scorcoles.github.io/gravity](https://scorcoles.github.io/gravity/) · En 
 - El cursor es una masa: hunde la tela donde está, atrae los puntos y deja una estela de ondas.
 - Cada toque o clic lanza una onda grande, que suena a impacto. Manteniendo pulsado, todo se acerca (y al soltar, vuelve despacio).
 - Sonido (el altavoz de arriba): un drone muy grave y continuo de fondo, una caída sin fin (cinco notas a una octava que bajan juntas sin llegar nunca abajo: la ilusión de Shepard) y el impacto. Y de vez en cuando, al azar, estática de radio de fondo.
-- Cinco modos (← Prev · Next → en el pie, las flechas o `#grid`, `#orbit`, `#negative`, `#wire`): el de siempre, los puntos negros sobre rosa; **grid**, la sábana del espacio-tiempo, una malla verde fósforo sobre negro que se hunde en el pozo; **orbit**, el disco de acreción, partículas que giran cada vez más deprisa y caen en espiral, con estela; **negative**, los puntos en blanco sobre negro, como polvo de estrellas; y **wire**, en gris y negro, con los números.
+- Cuatro modos (← Prev · Next → en el pie, las flechas o `#grid`, `#orbit`, `#wire`): el de siempre, los puntos negros sobre rosa; **grid**, la sábana del espacio-tiempo, una malla verde fósforo sobre negro que se hunde en el pozo; **orbit**, el disco de acreción, partículas que giran cada vez más deprisa y caen en espiral, con estela; y **wire**, en gris y negro, con los números.
 - En pantallas pequeñas, menos densidad (menos puntos por anillo y uno de cada dos anillos), para que no se amontonen.
 
 ## Cómo está hecho

@@ -21,7 +21,7 @@
 //     milimetrado, que se hunde en el pozo y se estira al bajar por la garganta;
 //   - ORBIT: el disco de acreción. Partículas que giran alrededor del agujero, cada vez más
 //     deprisa cuanto más cerca, y caen en espiral, con estela;
-//   - y los puntos de siempre en otros colores (negative, wire: main.js).
+//   - y los puntos de siempre en otros colores (wire: main.js).
 //
 // Todo lo mueve un shader. Cada punto sabe en qué anillo está («u», de 0 al fondo de la
 // garganta a 1 en el borde de fuera) y en qué ángulo; con el tiempo, u baja (cae) y, al
