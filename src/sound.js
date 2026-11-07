@@ -3,7 +3,7 @@
 // =========================================================================================
 //
 // Todo se genera aquí, con la Web Audio API: no hay archivos de audio.
-//   - el FONDO: dos ondas muy graves, casi iguales (36 Hz), que laten despacio, por un
+//   - el FONDO: dos ondas muy graves, casi iguales (27 Hz), que laten despacio, por un
 //     filtro que solo deja lo más grave. Se nota más que se oye, como la presión del pozo;
 //   - la CAÍDA: un tono que baja sin parar y nunca llega abajo. Son seis notas a una octava
 //     una de otra que bajan juntas; las de en medio suenan más y las de los extremos casi
@@ -19,14 +19,15 @@
 // Los navegadores no dejan sonar nada sin que se toque algo: empieza con el botón de arriba.
 
 // El fondo: su nota (Hz), cuánto se desafina la segunda onda y por dónde corta el filtro.
-const BASE = 36;
+const BASE = 27;
 const BEAT = 1.006;
-const FILTER = 120;
+const FILTER = 80;
 
-// La caída: cuántas notas, la más grave posible (Hz), cuántas octavas baja por segundo y
-// su volumen.
-const VOICES = 6;
-const LOWEST = 55;
+// La caída: cuántas notas, la más grave posible (Hz), cuántas octavas baja por segundo, su
+// volumen y en qué parte de la escalera suena más (0 = abajo, 1 = arriba: en lo grave).
+const VOICES = 5;
+const LOWEST = 27.5;
+const LOUDEST = 0.35;
 const FALL = 0.035;
 const FALL_VOLUME = 0.05;
 
@@ -122,8 +123,8 @@ export function createSound() {
     setTimeout(() => !on && ctx.suspend(), (FADE / 2) * 1000 + 100);
   }
 
-  // Un impacto, en el lado del toque (-1 a 1). Tres capas: un golpe grave que cae de 90 a
-  // 28 Hz (por eso suena a golpe y no a nota) y se apaga en segundo y medio; un estallido
+  // Un impacto, en el lado del toque (-1 a 1). Tres capas: un golpe grave que cae de 60 a
+  // 20 Hz (por eso suena a golpe y no a nota) y se apaga en dos segundos; un estallido
   // de ruido muy corto y apagado; y una cola de metal (las proporciones de una campana, 1,
   // 2,76, 5,40 y 8,93, sobre una nota grave) que resuena. Todo lo demás baja y vuelve.
   function impact(pan = 0) {
@@ -134,21 +135,21 @@ export function createSound() {
     out.connect(master);
 
     const boom = ctx.createOscillator();
-    boom.frequency.setValueAtTime(90, now);
-    boom.frequency.exponentialRampToValueAtTime(28, now + 0.9);
+    boom.frequency.setValueAtTime(60, now);
+    boom.frequency.exponentialRampToValueAtTime(20, now + 1.1);
     const boomLevel = ctx.createGain();
     boomLevel.gain.setValueAtTime(0, now);
     boomLevel.gain.linearRampToValueAtTime(IMPACT_VOLUME, now + 0.008);
-    boomLevel.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
+    boomLevel.gain.exponentialRampToValueAtTime(0.0001, now + 2);
     boom.connect(boomLevel).connect(out);
     boom.start(now);
-    boom.stop(now + 1.65);
+    boom.stop(now + 2.05);
 
     const crack = ctx.createBufferSource();
     crack.buffer = noise;
     const dull = ctx.createBiquadFilter();
     dull.type = 'lowpass';
-    dull.frequency.value = 900;
+    dull.frequency.value = 450;
     const crackLevel = ctx.createGain();
     crackLevel.gain.setValueAtTime(IMPACT_VOLUME * 0.5, now);
     crackLevel.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
@@ -156,7 +157,7 @@ export function createSound() {
     crack.start(now, random(0, 0.8));
     crack.stop(now + 0.15);
 
-    const base = random(48, 62);
+    const base = random(30, 40);
     [1, 2.76, 5.4, 8.93].forEach((ratio, k) => {
       const osc = ctx.createOscillator();
       osc.frequency.value = base * ratio;
@@ -187,8 +188,10 @@ export function createSound() {
     voices.forEach(({ osc, level }, k) => {
       const octave = (k + 1 - fallPosition) % VOICES;
       osc.frequency.setTargetAtTime(LOWEST * 2 ** octave, now, 0.02);
-      const middle = (octave / VOICES) * 2 - 1;
-      level.gain.setTargetAtTime(FALL_VOLUME * Math.exp(-middle * middle * 4) / zoom, now, 0.05);
+      // (Una campana alrededor de LOUDEST; en los extremos, nada.)
+      const middle = octave / VOICES - LOUDEST;
+      const edges = Math.sin((Math.PI * octave) / VOICES);
+      level.gain.setTargetAtTime((FALL_VOLUME * Math.exp(-middle * middle * 10) * edges) / zoom, now, 0.05);
     });
     // El cursor tira del fondo: más grave y más abierto cuanto más cerca del agujero.
     const cents = -near * 300 - (zoom - 1) * ZOOM_PITCH;
