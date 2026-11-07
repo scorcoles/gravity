@@ -3,8 +3,10 @@
 // =========================================================================================
 //
 // Todo se genera aquí, con la Web Audio API: no hay archivos de audio.
-//   - el FONDO: dos ondas muy graves, casi iguales (27 Hz), que laten despacio, por un
-//     filtro que solo deja lo más grave. Se nota más que se oye, como la presión del pozo;
+//   - el FONDO, un drone continuo: dos ondas muy graves, casi iguales (24 Hz), que laten
+//     despacio, y encima, una octava más arriba, dos en diente de sierra que le dan cuerpo
+//     (24 Hz solo, en un móvil o un portátil, casi no suena). Todo por un filtro que solo
+//     deja lo más grave y que respira muy despacio. Como la presión del pozo;
 //   - la CAÍDA: un tono que baja sin parar y nunca llega abajo. Son cinco notas a una octava
 //     una de otra que bajan juntas; las de en medio suenan más y las de los extremos casi
 //     nada, así que cuando la más grave se apaga, por arriba entra otra sin que se note
@@ -21,10 +23,13 @@
 //
 // Los navegadores no dejan sonar nada sin que se toque algo: empieza con el botón de arriba.
 
-// El fondo: su nota (Hz), cuánto se desafina la segunda onda y por dónde corta el filtro.
-const BASE = 27;
-const BEAT = 1.006;
-const FILTER = 80;
+// El fondo: su nota (Hz), cuánto se desafina la segunda onda, por dónde corta el filtro y
+// su respiración (una vuelta cada BREATH segundos, abriendo y cerrando BREATH_DEPTH Hz).
+const BASE = 24;
+const BEAT = 1.004;
+const FILTER = 85;
+const BREATH = 23;
+const BREATH_DEPTH = 25;
 
 // La caída: cuántas notas, la más grave posible (Hz), cuántas octavas baja por segundo, su
 // volumen y en qué parte de la escalera suena más (0 = abajo, 1 = arriba: en lo grave).
@@ -47,7 +52,7 @@ const VOLUME = 0.45;
 // La estática de radio: cada cuánto sale (segundos, entre y), cuánto dura, y su volumen.
 const STATIC_EVERY = [8, 20];
 const STATIC_LENGTH = [2.5, 6];
-const STATIC_VOLUME = 0.05;
+const STATIC_VOLUME = 0.04;
 const FADE = 2;
 
 function random(a, b) {
@@ -79,17 +84,29 @@ export function createSound() {
     bed = ctx.createGain();
     bed.connect(master);
 
-    // El fondo: las dos ondas graves por el filtro.
+    // El fondo: las ondas graves por el filtro, que respira.
     lowpass = ctx.createBiquadFilter();
     lowpass.type = 'lowpass';
     lowpass.frequency.value = FILTER;
     lowpass.Q.value = 1.2;
     lowpass.connect(bed);
-    for (const frequency of [BASE, BASE * BEAT]) {
+    const breath = ctx.createOscillator();
+    breath.frequency.value = 1 / BREATH;
+    const breathDepth = ctx.createGain();
+    breathDepth.gain.value = BREATH_DEPTH;
+    breath.connect(breathDepth).connect(lowpass.frequency);
+    breath.start();
+    for (const [frequency, type, gain] of [
+      [BASE, 'sine', 0.6],
+      [BASE * BEAT, 'sine', 0.6],
+      [BASE * 2, 'sawtooth', 0.12],
+      [BASE * 2 * BEAT, 'sawtooth', 0.1],
+    ]) {
       const osc = ctx.createOscillator();
+      osc.type = type;
       osc.frequency.value = frequency;
       const level = ctx.createGain();
-      level.gain.value = 0.6;
+      level.gain.value = gain;
       osc.connect(level).connect(lowpass);
       osc.start();
       tuned.push(osc);
@@ -257,7 +274,7 @@ export function createSound() {
     });
     // El cursor tira del fondo: más grave y más abierto cuanto más cerca del agujero.
     const cents = -near * 300 - (zoom - 1) * ZOOM_PITCH;
-    for (const osc of tuned.slice(0, 2)) osc.detune.setTargetAtTime(cents, now, 0.1);
+    for (const osc of tuned.slice(0, 4)) osc.detune.setTargetAtTime(cents, now, 0.1);
     lowpass.frequency.setTargetAtTime((FILTER * (1 + near)) / zoom, now, 0.1);
   }
 

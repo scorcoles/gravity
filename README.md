@@ -8,7 +8,7 @@ Demo: [scorcoles.github.io/gravity](https://scorcoles.github.io/gravity/) · En 
 - El agujero sigue al cursor, con pereza (con el dedo, casi sin resistencia), y se queda donde lo dejes; al moverse, la tela se inclina hacia donde va.
 - El cursor es una masa: hunde la tela donde está, atrae los puntos y deja una estela de ondas.
 - Cada toque o clic lanza una onda grande, que suena a impacto. Manteniendo pulsado, todo se acerca.
-- Sonido (el altavoz de arriba): un fondo muy grave, una caída sin fin (cinco notas a una octava que bajan juntas sin llegar nunca abajo: la ilusión de Shepard) y el impacto. Y de vez en cuando, al azar, estática de radio de fondo.
+- Sonido (el altavoz de arriba): un drone muy grave y continuo de fondo, una caída sin fin (cinco notas a una octava que bajan juntas sin llegar nunca abajo: la ilusión de Shepard) y el impacto. Y de vez en cuando, al azar, estática de radio de fondo.
 - Dos modos (← Prev · Next → en el pie, las flechas o `#wire`): el rosa, y **wire**, en gris y negro, con los números.
 - En pantallas pequeñas, menos densidad (menos puntos por anillo y uno de cada dos anillos), para que no se amontonen.
 
